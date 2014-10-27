@@ -46,6 +46,8 @@ import Data.Monoid
 import Data.Foldable (Foldable(foldMap), toList)
 -}
 
+infixr 5 <|
+
 {-
 infixr 5 ><
 infixr 5 <|, :<
@@ -252,7 +254,6 @@ traverseNode : (Measured v2 a2, Applicative f) =>
 traverseNode f (Node2 _ a b) = [| node2 (f a) (f b) |]
 traverseNode f (Node3 _ a b c) = [| node3 (f a) (f b) (f c) |]
 
-{-
 traverseDigit : Applicative f => (x -> f b) -> Digit x -> f (Digit b)
 traverseDigit f (One a) = [| One (f a) |]
 traverseDigit f (Two a b) = [| Two (f a) (f b) |]
@@ -271,54 +272,55 @@ traverse' : (Measured v1 a1, Measured v2 a2, Applicative f) =>
   (a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverse' = traverseTree
 
+traverseWPNode : (Measured v1 a1, Measured v2 a2, Applicative f) =>
+  (v1 -> a1 -> f a2) -> v1 -> Node v1 a1 -> f (Node v2 a2)
+traverseWPNode f v (Node2 _ a b) = [| node2 (f v a) (f va b) |]
+  where va = v <+> measure a
+traverseWPNode f v (Node3 _ a b c) = [| node3 (f v a) (f va b) (f vab c) |]
+  where va  = v <+> measure a
+        vab = va <+> measure b
+
+traverseWPDigit : (Measured v a, Applicative f) =>
+  (v -> a -> f b) -> v -> Digit a -> f (Digit b)
+traverseWPDigit f v (One a) = [| One (f v a) |]
+traverseWPDigit f v (Two a b) = [| Two (f v a) (f va b) |]
+  where va  = v <+> measure a
+traverseWPDigit f v (Three a b c) = [| Three (f v a) (f va b) (f vab c) |]
+  where va  = v <+> measure a
+        vab = va <+> measure b
+traverseWPDigit f v (Four a b c d) = [| Four (f v a) (f va b) (f vab c) (f vabc d) |]
+  where va   = v <+> measure a
+        vab  = va <+> measure b
+        vabc = vab <+> measure c
+
+traverseWPTree : (Measured v1 a1, Measured v2 a2, Applicative f) =>
+  (v1 -> a1 -> f a2) -> v1 -> FingerTree v1 a1 -> f (FingerTree v2 a2)
+traverseWPTree _ _ Empty = pure Empty
+traverseWPTree f v (Single x) = [| Single (f v x) |]
+traverseWPTree f v (Deep _ pr m sf) =
+  [| deep (traverseWPDigit f v pr) (traverseWPTree (traverseWPNode f) vpr m) (traverseWPDigit f vm sf) |]
+  where vpr = v <+> measure pr
+        vm = vpr `mappendVal` m
+
 -- | Traverse the tree with a function that also takes the
 -- measure of the prefix of the tree to the left of the element.
 traverseWithPos : (Measured v1 a1, Measured v2 a2, Applicative f) =>
   (v1 -> a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverseWithPos f = traverseWPTree f neutral
 
-traverseWPTree : (Measured v1 a1, Measured v2 a2, Applicative f) =>
-  (v1 -> a1 -> f a2) -> v1 -> FingerTree v1 a1 -> f (FingerTree v2 a2)
-traverseWPTree _ _ Empty = pure Empty
-traverseWPTree f v (Single x) = Single <$> f v x
-traverseWPTree f v (Deep _ pr m sf) =
-  deep <$> traverseWPDigit f v pr <*> traverseWPTree (traverseWPNode f) vpr m <*> traverseWPDigit f vm sf
-  where vpr =  v    <+>  measure pr
-  vm  =  vpr  `mappendVal` m
-
-traverseWPNode : (Measured v1 a1, Measured v2 a2, Applicative f) =>
-  (v1 -> a1 -> f a2) -> v1 -> Node v1 a1 -> f (Node v2 a2)
-traverseWPNode f v (Node2 _ a b) = node2 <$> f v a <*> f va b
-  where va  = v <+> measure a
-traverseWPNode f v (Node3 _ a b c) = node3 <$> f v a <*> f va b <*> f vab c
-  where va  = v <+> measure a
-  vab = va <+> measure b
-
-traverseWPDigit : (Measured v a, Applicative f) =>
-  (v -> a -> f b) -> v -> Digit a -> f (Digit b)
-traverseWPDigit f v (One a) = One <$> f v a
-traverseWPDigit f v (Two a b) = Two <$> f v a <*> f va b
-  where va  = v <+> measure a
-traverseWPDigit f v (Three a b c) = Three <$> f v a <*> f va b <*> f vab c
-  where va  = v <+> measure a
-  vab = va <+> measure b
-traverseWPDigit f v (Four a b c d) = Four <$> f v a <*> f va b <*> f vab c <*> f vabc d
-  where va  = v <+> measure a
-  vab = va <+> measure b
-        vabc  = vab <+> measure c
+unsafeTraverseNode : (Applicative f) =>
+  (a -> f b) -> Node v a -> f (Node v b)
+unsafeTraverseNode f (Node2 v a b) = pure (Node2 v) <$> f a <$> f b
+unsafeTraverseNode f (Node3 v a b c) = pure (Node3 v) <$> f a <$> f b <$> f c
 
 -- | Like 'traverse', but safe only if the function preserves the measure.
 unsafeTraverse : (Applicative f) =>
   (a -> f b) -> FingerTree v a -> f (FingerTree v b)
 unsafeTraverse _ Empty = pure Empty
-unsafeTraverse f (Single x) = Single <$> f x
+unsafeTraverse f (Single x) = [| Single (f x) |]
 unsafeTraverse f (Deep v pr m sf) =
-  Deep v <$> traverseDigit f pr <*> unsafeTraverse (unsafeTraverseNode f) m <*> traverseDigit f sf
+  pure (Deep v) <$> traverseDigit f pr <$> unsafeTraverse (unsafeTraverseNode f) m <$> traverseDigit f sf
 
-unsafeTraverseNode : (Applicative f) =>
-  (a -> f b) -> Node v a -> f (Node v b)
-unsafeTraverseNode f (Node2 v a b) = Node2 v <$> f a <*> f b
-unsafeTraverseNode f (Node3 v a b c) = Node3 v <$> f a <*> f b <*> f c
 
 -----------------------------------------------------
 -- 4.3 Construction, deconstruction and concatenation
@@ -332,25 +334,31 @@ empty = Empty
 singleton : Measured v a => a -> FingerTree v a
 singleton = Single
 
--- | /O(n)/. Create a sequence from a finite list of elements.
-fromList : (Measured v a) => [a] -> FingerTree v a 
-fromList = foldr (<|) Empty
-
--- | /O(1)/. Add an element to the left end of a sequence.
--- Mnemonic: a triangle with the single element at the pointy end.
-(<|) : (Measured v a) => a -> FingerTree v a -> FingerTree v a
-a <| Empty    =  Single a
-a <| Single b   =  deep (One a) Empty (One b)
-a <| Deep v (Four b c d e) m sf = m `seq`
-  Deep (measure a <+> v) (Two a b) (node3 c d e <| m) sf
-a <| Deep v pr m sf =
-  Deep (measure a <+> v) (consDigit a pr) m sf
+-- TODO: get rid of this!!!
+illegal_argument : String -> a
+illegal_argument name =
+  believe_me $ "Logic error: " ++ name ++ " called with illegal argument"
 
 consDigit : a -> Digit a -> Digit a
 consDigit a (One b) = Two a b
 consDigit a (Two b c) = Three a b c
 consDigit a (Three b c d) = Four a b c d
 consDigit _ (Four _ _ _ _) = illegal_argument "consDigit"
+
+{-
+-- | /O(1)/. Add an element to the left end of a sequence.
+-- Mnemonic: a triangle with the single element at the pointy end.
+(<|) : (Measured v a) => a -> FingerTree v a -> FingerTree v a
+a <| Empty    =  Single a
+a <| (Single b)   =  deep (One a) Empty (One b)
+a <| (Deep v (Four b c d e) m sf) = m `seq`
+  Deep (measure a <+> v) (Two a b) (node3 c d e <| m) sf
+a <| (Deep v pr m sf) =
+  Deep (measure a <+> v) (consDigit a pr) m sf
+
+-- | /O(n)/. Create a sequence from a finite list of elements.
+fromList : (Measured v a) => List a -> FingerTree v a 
+fromList = foldr (<|) Empty
 
 -- | /O(1)/. Add an element to the right end of a sequence.
 -- Mnemonic: a triangle with the single element at the pointy end.
@@ -783,10 +791,6 @@ reverseDigit f (One a) = One (f a)
 reverseDigit f (Two a b) = Two (f b) (f a)
 reverseDigit f (Three a b c) = Three (f c) (f b) (f a)
 reverseDigit f (Four a b c d) = Four (f d) (f c) (f b) (f a)
-
-illegal_argument : String -> a
-illegal_argument name =
-  error $ "Logic error: " ++ name ++ " called with illegal argument"
 
 {- $example
 
