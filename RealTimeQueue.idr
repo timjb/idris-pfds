@@ -54,7 +54,7 @@ twoNPlusMPair = uncurry twoNPlusM
 
 sucPairCorrect : (p : NatPair) -> twoNPlusMPair (sucPair p) = S (twoNPlusMPair p)
 sucPairCorrect (n, Z) = ?sucPairCorrectCase1
-sucPairCorrect (n, S m) = refl
+sucPairCorrect (n, S m) = Refl
 
 snoc' : Queue' p a -> a -> Queue' (sucPair p) a
 snoc' {p=(n,Z)} (QueueC' xs ys Nil) v =
@@ -71,22 +71,22 @@ pairNotZero (Z, Z) = False
 pairNotZero _ = True
 
 PairNotZero : NatPair -> Type
-PairNotZero = so . pairNotZero
+PairNotZero = So . pairNotZero
 
 pairNotZeroSumPositive : (p : NatPair) -> PairNotZero p -> (l : Nat ** pairSum p = S l)
-pairNotZeroSumPositive (Z,Z) oh impossible
-pairNotZeroSumPositive (Z,S m) _ = (m ** refl)
-pairNotZeroSumPositive (S n,m) _ = ((n + m) ** refl)
+pairNotZeroSumPositive (Z,Z) Oh impossible
+pairNotZeroSumPositive (Z,S m) _ = (m ** Refl)
+pairNotZeroSumPositive (S n,m) _ = ((n + m) ** Refl)
 
 sumPositivePairNotZero : (p : NatPair) -> pairSum p = S l -> PairNotZero p
-sumPositivePairNotZero {l=l} (Z,Z) refl impossible
-sumPositivePairNotZero (Z,S m) _ = oh
-sumPositivePairNotZero (S n,m) _ = oh
+sumPositivePairNotZero {l=l} (Z,Z) Refl impossible
+sumPositivePairNotZero (Z,S m) _ = Oh
+sumPositivePairNotZero (S n,m) _ = Oh
 
 twoNPlusMPositivePairNotZero : (p : NatPair) -> twoNPlusMPair p = S l -> PairNotZero p
-twoNPlusMPositivePairNotZero {l=l} (Z,Z) refl impossible
-twoNPlusMPositivePairNotZero (Z,S m) _ = oh
-twoNPlusMPositivePairNotZero (S n,m) _ = oh
+twoNPlusMPositivePairNotZero {l=l} (Z,Z) Refl impossible
+twoNPlusMPositivePairNotZero (Z,S m) _ = Oh
+twoNPlusMPositivePairNotZero (S n,m) _ = Oh
 
 head' : Queue' p a -> pairSum p = S l -> a
 head' {l=l} (QueueC' xs _ _) eq =
@@ -98,7 +98,7 @@ predPair (Z, Z)   = (Z, Z)
 predPair (S n, Z) = (Z, S (n + n))
 
 predPairCorrect : (p : NatPair) -> twoNPlusMPair (predPair p) = pred (twoNPlusMPair p)
-predPairCorrect (Z, Z) = refl
+predPairCorrect (Z, Z) = Refl
 predPairCorrect (S n, Z) = ?predPairCorrectCase1
 predPairCorrect (n, S m) = ?predPairCorrectCase2
 
@@ -110,7 +110,7 @@ tail' {p=(S n,Z)} (QueueC' xs ys Nil) _ =
   let tl = lazyVectTail {l=n} (rewrite (sym (plusZeroRightNeutral n)) in xs)
       f' = concatReverse tl ys
   in QueueC' f' Nil f'
-tail' {p=(Z,Z)} _ oh impossible
+tail' {p=(Z,Z)} _ Oh impossible
 
 
 data Queue : Nat -> Type -> Type where
@@ -136,7 +136,7 @@ toVect {n=S n} q = (head q) :: (toVect (tail q))
 fromVect : Vect n a -> Queue n a
 fromVect xs =
   let f = fromStrictVect xs
-  in QueueC (QueueC' f Nil f) refl
+  in QueueC (QueueC' f Nil f) Refl
 
 
 ------------------------------------------------------------------------------
