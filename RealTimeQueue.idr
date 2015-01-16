@@ -1,5 +1,8 @@
 module Data.RealTimeQueue
 
+import Data.Vect
+import Data.So
+
 -- adapted from Chris Okasaki's `Purely Functional Data Structures`, figure 7.1
 
 %default total
