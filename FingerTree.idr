@@ -307,8 +307,8 @@ traverseWithPos f = traverseWPTree f neutral
 
 unsafeTraverseNode : (Applicative f) =>
   (a -> f b) -> Node v a -> f (Node v b)
-unsafeTraverseNode f (Node2 v a b) = pure (Node2 v) <$> f a <$> f b
-unsafeTraverseNode f (Node3 v a b c) = pure (Node3 v) <$> f a <$> f b <$> f c
+unsafeTraverseNode f (Node2 v a b) = Node2 v <$> f a <*> f b
+unsafeTraverseNode f (Node3 v a b c) = Node3 v <$> f a <*> f b <*> f c
 
 -- | Like 'traverse', but safe only if the function preserves the measure.
 unsafeTraverse : (Applicative f) =>
@@ -316,7 +316,7 @@ unsafeTraverse : (Applicative f) =>
 unsafeTraverse _ Empty = pure Empty
 unsafeTraverse f (Single x) = [| Single (f x) |]
 unsafeTraverse f (Deep v pr m sf) =
-  pure (Deep v) <$> traverseDigit f pr <$> map Delay (unsafeTraverse (unsafeTraverseNode f) m) <$> traverseDigit f sf
+  Deep v <$> traverseDigit f pr <*> map Delay (unsafeTraverse (unsafeTraverseNode f) m) <*> traverseDigit f sf
 
 
 -----------------------------------------------------

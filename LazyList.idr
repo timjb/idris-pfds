@@ -20,15 +20,10 @@ instance Semigroup (LazyList a) where
 instance Monoid (LazyList a) where
   neutral = Nil
 
-private
-fmap : (a -> b) -> LazyList a -> LazyList b
-fmap f xs =
-  Delay $ case xs of
-    Delay Nil => Nil
-    Delay (x::xs') => (f x)::(fmap f xs')
-
-instance Functor LazyList where
-  map = fmap
+instance Functor LazyListCell where
+  map f Nil = Nil
+  map f (x :: xs) =
+    f x :: Delay (let Delay xs' = xs in map f xs)
 
 fromStrictList : List a -> LazyList a
 fromStrictList Nil = Nil
@@ -61,4 +56,4 @@ example : LazyList Nat
 example = [1,2,3,4,5,6,7,8]
 
 firstThreeAckValues : List Nat
-firstThreeAckValues = toStrictList $ take 3 $ fmap ack example
+firstThreeAckValues = toStrictList $ take 3 $ map ack example
