@@ -59,12 +59,17 @@ sucPairCorrect : (p : NatPair) -> twoNPlusMPair (sucPair p) = S (twoNPlusMPair p
 sucPairCorrect (n, Z) = ?sucPairCorrectCase1
 sucPairCorrect (n, S m) = Refl
 
+-- In the implementation of snoc', Idris doesn't accept 'rewrite … in xs'
+-- If 'rewrite LazyVect … xs' is used, Idris is happy.
+rewriteLazyVect : m = n -> LazyVect n a -> LazyVect m a
+rewriteLazyVect eq vect = rewrite eq in vect
+
 snoc' : Queue' p a -> a -> Queue' (sucPair p) a
 snoc' {p=(n,Z)} (QueueC' xs ys Nil) v =
-  let f' = concatReverse (rewrite (sym (plusZeroRightNeutral n)) in xs) (v::ys)
+  let f' = concatReverse (rewriteLazyVect (sym (plusZeroRightNeutral n)) xs) (v::ys)
   in QueueC' f' Nil f'
 snoc' {p=(n,S m)} (QueueC' xs ys (z::zs)) v =
-  QueueC' (rewrite (plusSuccRightSucc n m) in xs) (v::ys) zs
+  QueueC' (rewriteLazyVect (plusSuccRightSucc n m) xs) (v::ys) zs
 
 pairSum : NatPair -> Nat
 pairSum = uncurry (+)
