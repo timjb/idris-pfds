@@ -11,7 +11,8 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - cabal install idris
+ # install with --verbose=2 to avoid the travis inactivity timeout
+ - cabal install idris --verbose=2
 
 script:
   - idris --install pfds.ipkg
