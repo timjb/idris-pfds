@@ -1,5 +1,7 @@
 module FingerTree
 
+import Data.So
+
 %default total
 %access public
 
@@ -331,27 +333,6 @@ empty = Empty
 singleton : Measured v a => a -> FingerTree v a
 singleton = Single
 
--- TODO: get rid of this!!!
-illegal_argument : String -> a
-illegal_argument name =
-  believe_me $ "Logic error: " ++ name ++ " called with illegal argument"
-
-{-
-notFour : Digit a -> Bool
-notFour (Four _ _ _ _) = False
-notFour _ = True
-
-dec : {b : Bool} -> Dec (So b)
-dec {b=False} = No uninhabited
-dec {b=True} = Yes Oh
-
-consDigit : a -> (d : Digit a) -> (p : So (notFour d)) -> Digit a
-consDigit a (One b) _ = Two a b
-consDigit a (Two b c) _ = Three a b c
-consDigit a (Three b c d) _ = Four a b c d
-consDigit _ (Four _ _ _ _) Oh impossible
--}
-
 -- | /O(1)/. Add an element to the left end of a sequence.
 -- Mnemonic: a triangle with the single element at the pointy end.
 (<|) : (Measured v a) => a -> FingerTree v a -> FingerTree v a
@@ -359,22 +340,14 @@ a <| Empty = Single a
 a <| (Single b) = deep (One a) Empty (One b)
 a <| (Deep v pr m sf) =
   case pr of
-    One b => Deep (measure a <+> v) (Two a b) m sf
-    Two b c => Deep (measure a <+> v) (Three a b c) m sf
-    Three b c d => Deep (measure a <+> v) (Four a b c d) m sf
-    Four b c d e => Deep (measure a <+> v) (Two a b) (node3 c d e <| m) sf
+    One   b       => Deep (measure a <+> v) (Two   a b)     m sf
+    Two   b c     => Deep (measure a <+> v) (Three a b c)   m sf
+    Three b c d   => Deep (measure a <+> v) (Four  a b c d) m sf
+    Four  b c d e => Deep (measure a <+> v) (Two a b) (node3 c d e <| m) sf
 
 -- | /O(n)/. Create a sequence from a finite list of elements.
 fromList : (Measured v a) => List a -> FingerTree v a 
 fromList = foldr (<|) Empty
-
-{-
-snocDigit : Digit a -> a -> Digit a
-snocDigit (One a) b = Two a b
-snocDigit (Two a b) c = Three a b c
-snocDigit (Three a b c) d = Four a b c d
-snocDigit (Four _ _ _ _) _ = illegal_argument "snocDigit"
--}
 
 -- | /O(1)/. Add an element to the right end of a sequence.
 -- Mnemonic: a triangle with the single element at the pointy end.
@@ -383,10 +356,10 @@ Empty |> a = Single a
 (Single a) |> b = deep (One a) Empty (One b)
 (Deep v pr m sf) |> x =
   case sf of
-    One a => Deep (v <+> measure x) pr m (Two a x)
-    Two a b => Deep (v <+> measure x) pr m (Three a b x)
-    Three a b c => Deep (v <+> measure x) pr m (Four a b c x)
-    Four a b c d => Deep (v <+> measure x) pr (m |> node3 a b c) (Two d x)
+    One   a       => Deep (v <+> measure x) pr m (Two a x)
+    Two   a b     => Deep (v <+> measure x) pr m (Three a b x)
+    Three a b c   => Deep (v <+> measure x) pr m (Four a b c x)
+    Four  a b c d => Deep (v <+> measure x) pr (m |> node3 a b c) (Two d x)
 
 -- | /O(1)/. Is this the empty sequence?
 null : (Measured v a) => FingerTree v a -> Bool
@@ -716,23 +689,29 @@ deepR : (Measured v a) =>
 deepR pr m Nothing   = rotR pr m
 deepR pr m (Just sf) = deep pr m sf
 
+notEmpty : FingerTree v a -> Bool
+notEmpty Empty = False
+notEmpty _     = True
+
 splitTree :  (Measured v a) => 
-    (v -> Bool) -> v -> FingerTree v a -> Splitting (FingerTree v a) a
-splitTree _ _ Empty = illegal_argument "splitTree"
-splitTree _ _ (Single x) = Split Empty x Empty
-splitTree p i (Deep _ pr m sf) =
+    (v -> Bool) -> v -> (t : FingerTree v a) -> So (notEmpty t) -> Splitting (FingerTree v a) a
+splitTree _ _ Empty Oh impossible --so = absurd so --illegal_argument "splitTree"
+splitTree _ _ (Single x) _ = Split Empty x Empty
+splitTree p i (Deep _ pr m sf) _ =
   let vpr = i <+> measure pr in
   let vm = vpr `mappendVal` m in
   if p vpr then
     let Split l x r = splitDigit p i pr
     in Split (maybe Empty digitToTree l) x (deepL r m sf)
-  else if p vm then
-    let Split ml xs mr = splitTree p vpr m
-        Split l x r = splitNode p (vpr `mappendVal` ml) xs
-    in Split (deepR pr ml l) x (deepL r mr sf)
   else
-    let Split l x r =  splitDigit p vm sf
-    in Split (deepR pr m l) x (maybe Empty digitToTree r)
+    case (choose (notEmpty m), p vm) of
+      (Left so, True) =>
+        let Split ml xs mr = splitTree p vpr m so
+            Split l x r = splitNode p (vpr `mappendVal` ml) xs
+        in Split (deepR pr ml l) x (deepL r mr sf)
+      _ =>
+        let Split l x r =  splitDigit p vm sf
+        in Split (deepR pr m l) x (maybe Empty digitToTree r)
 
 -- | /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
 -- on the accumulated measure changes from 'False' to 'True'.
@@ -741,10 +720,12 @@ splitTree p i (Deep _ pr m sf) =
 -- point, i.e. that the predicate is /monotonic/.
 split : (Measured v a) => 
           (v -> Bool) -> FingerTree v a -> (FingerTree v a, FingerTree v a)
-split _ Empty  =  (Empty, Empty)
 split p xs =
-  let Split l x r = splitTree p neutral xs
-  in if p (measure xs) then (l, x <| r) else (xs, Empty)
+  case choose (notEmpty xs) of
+    Right _  => (Empty, Empty)
+    Left  so =>
+      let Split l x r = splitTree p neutral xs so
+      in if p (measure xs) then (l, x <| r) else (xs, Empty)
 
 -- | /O(log(min(i,n-i)))/.
 -- Given a monotonic predicate @p@, @'takeUntil' p t@ is the largest
