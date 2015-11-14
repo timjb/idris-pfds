@@ -8,11 +8,14 @@ data LazyListCell a = Nil | (::) a (Lazy (LazyListCell a))
 LazyList : Type -> Type
 LazyList a = Lazy (LazyListCell a)
 
-(++) : LazyList a -> LazyList a -> LazyList a
-(++) xs ys =
+appendLL : LazyList a -> LazyList a -> LazyList a
+appendLL xs ys =
   Delay $ case xs of
     Nil => ys
-    x::xs' => x::(xs' ++ ys)
+    (x::xs') => x::(appendLL xs' ys)
+
+(++) : LazyList a -> LazyList a -> LazyList a
+(++) = appendLL -- trying to define (++) directly leads to an error
 
 instance Semigroup (LazyList a) where
   (<+>) = (++)
@@ -37,12 +40,15 @@ countdown : Nat -> LazyList Nat
 countdown Z = [Z]
 countdown (S n) = (S n)::(countdown n)
 
-take : Nat -> LazyList a -> LazyList a
-take Z _ = Nil
-take (S n) xs = Delay $
+takeLL : Nat -> LazyList a -> LazyList a
+takeLL Z _ = Nil
+takeLL (S n) xs = Delay $
   case xs of
     Delay Nil => Nil
-    Delay (x::xs') => x::(take n xs')
+    Delay (x::xs') => x::(takeLL n xs')
+
+take : Nat -> LazyList a -> LazyList a
+take = takeLL -- trying to define `take` directly leads to an error
 
 ack' : Nat -> Nat -> Nat
 ack'    Z     m  = S m
@@ -56,4 +62,4 @@ example : LazyList Nat
 example = [1,2,3,4,5,6,7,8]
 
 firstThreeAckValues : List Nat
-firstThreeAckValues = toStrictList $ take 3 $ map ack example
+firstThreeAckValues = toStrictList $ Data.LazyList.take 3 $ map ack example
