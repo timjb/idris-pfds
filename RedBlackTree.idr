@@ -240,39 +240,17 @@ insert x (Root s) = blacken (ins x s)
     blacken (IN _ a x b) = Root (TB a x b)
 
 
-{-
  -- DELETION --
-                                  
--- like insert, delete relies on a helper function that may (slightly)
--- violate the red-black tree invariant
-                                  
-delete :: (Ord a) => a -> RBSet a -> RBSet a
-delete x (Root s) = blacken (del x s) 
- where blacken :: DT n a -> RBSet a
-       blacken (DT B a x b)  = Root (T B a x b)
-       blacken (DT BB a x b) = Root (T B a x b)
-       blacken DE  = Root E
-       blacken DEE = Root E
-       -- note: del always produces a black or 
-       -- double black tree. These last two cases are unreachable
-       -- but it may be difficult to prove it.
-       blacken (DT R a x b) = Root (T B a x b)
-       blacken (DT NB a x b) = Root (T B a x b)
-       
-       del :: Ord a => a -> CT n c a -> DT n a
-       del x E = DE
-       del x s@(T color a y b) | x < y     = bubbleL color (del x a) y b
-                               | x > y     = bubbleR color a y (del x b)
-                               | otherwise = remove s
                                   
 
 -- deletion tree, the result of del 
 -- could have a double black node 
 -- (but only at the top or as a single leaf)
-data DT n a where
-  DT  :: SColor c -> CT n c1 a -> a -> CT n c2 a -> DT (Incr c n) a
-  DE  :: DT Z a
-  DEE :: DT (S Z) a
+data DTree : Nat -> Type -> Type where
+  --DT   : (c:C) -> CT n c1 a -> a -> CT n c2 a -> DTree (cBlackHeight c + n) a
+  DT   : CT n c a -> DTree n a
+  DTBB : CT n c1 a -> a -> CT n c2 a -> DTree (S (S n)) a
+  DEE  : DTree (S Z) a
   
 -- Note: we could unify this with the IR data structure by   
 -- adding the DE and DEE data constructors. That would allow us to 
@@ -282,6 +260,7 @@ data DT n a where
 -- trying to show that insertion never produces a leaf.
   
 
+{-
 instance Show a => Show (DT n a) where
   show DE = "DE"
   show DEE = "DEE"
@@ -296,109 +275,219 @@ showDT DEE = "DEE"
 showDT (DT c l x r) = 
     "(DT " ++ show c ++ " " ++ showT l ++ " " 
            ++ "..." ++ " " ++ showT r ++ ")"
+-}
 
+data RedTree : Nat -> Type -> Type where
+  -- red tree
+  RT  : CT n c1 a -> a -> CT n c2 a -> RedTree n a
+  -- negative black tree
+  NBT : CT (S n) B a -> a -> CT (S n) B a -> RedTree n a
+
+data IR' : Nat -> Type -> Type where
+   IN' : (c : C) -> CT n c1 a -> a -> CT n c2 a -> IR' (cBlackHeight c + n) a
+   E' : IR' 0 a
+
+toIR' : CT n c a -> IR' n a
+toIR' E = E'
+toIR' (TB a x b) = IN' B a x b
+toIR' (TR a x b) = IN' R a x b
+
+bbBalanceL : RedTree n a -> a -> CT n c1 a -> DTree (S (S n)) a
+bbBalanceL (RT (TR a x b) y c) z d = DT (TB (TB a x b) y (TB c z d))
+bbBalanceL (RT a x (TR b y c)) z d = DT (TB (TB a x b) y (TB c z d))
+bbBalanceL (RT {c1=B} {c2=B} a x b) y c = DTBB (TR a x b) y c
+bbBalanceL (NBT (TB a1 a2 a3) x (TB b y c)) z d =
+  let Evidence _ leftTree = bBalanceL (IN R a1 a2 a3) x b
+  in DT (TB leftTree y (TB c z d))
+
+partial
+bbBalanceR : CT n c1 a -> a -> RedTree n a -> DTree (S (S n)) a
+bbBalanceR a x (RT (TR b y c) z d) = DT (TB (TB a x b) y (TB c z d))
+bbBalanceR a x (RT b y (TR c z d)) = DT (TB (TB a x b) y (TB c z d))
+bbBalanceR a x (RT {c1=B} {c2=B} b y c) = DTBB a x (TR b y c)
+bbBalanceR a x (NBT (TB b y c) z (TB d1 d2 d3)) =
+  let Evidence _ rightTree = bBalanceR c z (IN R d1 d2 d3)
+  in DT (TB (TB a x b) y rightTree)
+  {-
+      BB-x
+       / \
+      /   \
+     a   NB-z
+          / \
+         /   \
+       B-y  B-d
+       / \
+      /   \
+     b     c
+    
+    will be transformed into
+    
+         B-y
+         / \
+        /   \
+       /     \
+      /       \
+    B-x       B-z
+    / \       / \
+   /   \     /   \
+  a     b   c    R-d <~ possible violation of invariants
+  -}
+
+rBubbleR : CT n B a -> a -> DTree n a -> IR' n a
+rBubbleR a x (DT b) = IN' R a x b
+rBubbleR (TB a x b) y (DTBB c z d) =
+  let Evidence _ t = bBalanceL (IN R a x b) y (TB c z d)
+  in toIR' t
+rBubbleR (TB a x b) y DEE =
+  let Evidence _ t = bBalanceL (IN R a x b) y E
+  in toIR' t
+
+bBubbleR1 : CT n c1 a -> a -> DTree n a -> DTree (S n) a
+bBubbleR1 a x (DT b) = DT (TB a x b)
+bBubbleR1 (TB a x b) y (DTBB c z d) =
+  bbBalanceL (RT a x b) y (TB c z d)
+bBubbleR1 (TB a x b) y DEE =
+  bbBalanceL (RT a x b) y E
+-- TODO: combine last two cases
+bBubbleR1 (TR a x b) y (DTBB c z d) =
+  bbBalanceL (NBT a x b) y (TB c z d)
+bBubbleR1 (TR a x b) y DEE =
+  bbBalanceL (NBT a x b) y E
+-- TODO: combine last two cases
+-- META-TODO: combine last four cases?
+
+bBubbleR2 : CT n c1 a -> a -> IR' n a -> DTree (S n) a
+bBubbleR2 a x (IN' color b y c) =
+  let Evidence _ t = bBalanceR a x (IN color b y c)
+  in DT t
+bBubbleR2 a x E' = DT (TB a x E)
+
+bBubbleR : (c:C) -> CT n c1 a -> a ->
+           (if c == R then IR' n a else DTree n a) ->
+           DTree (S n) a
+bBubbleR R = bBubbleR2
+bBubbleR B = bBubbleR1
+
+rBubbleL : DTree n a -> a -> CT n B a -> IR' n a
+rBubbleL (DT a) x b = IN' R a x b
+rBubbleL (DTBB a x b) y (TB c z d) =
+  let Evidence _ t = bBalanceR (TB a x b) y (IN R c z d)
+  in toIR' t
+rBubbleL DEE x (TB a y b) =
+  let Evidence _ t = bBalanceR E x (IN R a y b)
+  in toIR' t
+
+bBubbleL1 : DTree n a -> a -> CT n c1 a -> DTree (S n) a
+bBubbleL1 (DT a) x b = DT (TB a x b)
+bBubbleL1 (DTBB a x b) y (TB c z d) =
+  bbBalanceR (TB a x b) y (RT c z d)
+bBubbleL1 DEE x (TB a y b) =
+  bbBalanceR E x (RT a y b)
+-- TODO: combine last two cases
+bBubbleL1 (DTBB a x b) y (TR c z d) =
+  bbBalanceR (TB a x b) y (NBT c z d)
+bBubbleL1 DEE x (TR a y b) =
+  bbBalanceR E x (NBT a y b)
+-- TODO: combine last two cases
+-- META-TODO: combine last four cases?
+
+partial
+bBubbleL2 : IR' n a -> a -> CT n c1 a -> DTree (S n) a
+bBubbleL2 (IN' color a x b) y c =
+  let Evidence _ t = bBalanceL (IN color a x b) y c
+  in DT t
+bBubbleL2 E' x a = DT (TB E x a)
+
+bBubbleL : (c:C) -> (if c == R then IR' n a else DTree n a) ->
+           a -> CT n c1 a ->
+           DTree (S n) a
+bBubbleL R = bBubbleL2
+bBubbleL B = bBubbleL1
+
+-- TODO: get rid of symmetric half?
 
 -- maximum element from a red-black tree
-max :: CT n c a -> a
-max E = error "no largest element"
-max (T _ _ x E) = x
-max (T _ _ x r) = max r
+max : (t:CT n c a) -> Maybe a
+max E = Nothing
+max (TB _ x E) = Just x
+max (TR _ x E) = Just x
+max (TB _ x r) = max r
+max (TR _ x r) = max r
+
+-- remove the maximum element of the tree
+mutual
+  rRemoveMax : CT n R a -> IR' n a
+  rRemoveMax (TR E _ E) = E'
+  rRemoveMax (TR a x b) = rBubbleR a x (bRemoveMax b)
+  bRemoveMax : CT n B a -> DTree n a
+  bRemoveMax E = DT E
+  bRemoveMax (TB E _ E) = DEE
+  bRemoveMax (TB (TR a x b) _ E) = DT (TB a x b)
+  bRemoveMax (TB {c2=d} a x b) = bBubbleR d a x (removeMax b)
+  removeMax : CT n c a -> (if c == R then IR' n a else DTree n a)
+  removeMax {c=R} = rRemoveMax
+  removeMax {c=B} = bRemoveMax
 
 -- Remove the top node: it might leave behind a double black node
 -- if the removed node is black (note that the height is preserved)
-remove :: CT n c a -> DT n a
-remove (T R E _ E) = DE
-remove (T B E _ E) = DEE 
-remove (T B E _ (T R a x b)) = DT B a x b
-remove (T B (T R a x b) _ E) = DT B a x b
-remove (T color l y r) = bubbleL color (removeMax l) (max l) r 
+rRemove : CT n R a -> IR' n a
+rRemove (TR E _ E) = E'
+rRemove (TR a x b) = rBubbleL (bRemoveMax a) (fromMaybe x (max a)) b
+-- here, `max l` is `Just x` for some `x:a` and `fromMaybe y (max l)` is simply `x`.
 
--- remove the maximum element of the tree
-removeMax :: CT n c a -> DT n a
-removeMax E                 = error "no maximum to remove"
-removeMax s@(T _ _ _ E)     = remove s
-removeMax s@(T color l x r) = bubbleR color l x (removeMax r)
+bRemove : CT n B a -> DTree n a
+bRemove E = DT E
+bRemove (TB E _ E) = DEE 
+bRemove (TB E _ (TR a x b)) = DT (TB a x b)
+bRemove (TB (TR a x b) _ E) = DT (TB a x b)
+bRemove (TB {c1=d} a x b) = bBubbleL d (removeMax a) (fromMaybe x (max a)) b
+-- here, `max l` is `Just x` for some `x:a` and `fromMaybe y (max l)` is simply `x`.
 
--- make a node more red (i.e. decreasing its black height)
--- note that the color of the resulting node is not part of the 
--- result height because the result of this operation doesn't 
--- necessarily satisfy the RBT invariants
-redden :: CT (S n) c a -> DT n a
-redden (T B a x y)  = DT R a x y
-redden (T BB a x y) = DT B a x y
-redden (T R a x y)  = DT NB a x y
+remove : CT n c a -> (if c == R then IR' n a else DTree n a)
+remove {c=R} = rRemove
+remove {c=B} = bRemove
 
--- assert that a tree is red. Dynamically fail otherwise
--- this is a cheat that Haskell let's us get away with, but Agda
--- would not
-assertRed :: DT n a -> CT n Red a
-assertRed (DT R (T B aa ax ay) x (T B ac az ad)) = 
-  (T R (T B aa ax ay) x (T B ac az ad))
-assertRed t = error ("not a red tree " ++ showDT t)
+-- like insert, delete relies on a helper function that may (slightly)
+-- violate the red-black tree invariant
 
-dbalanceL :: SColor c -> DT n a -> a -> CT n c1 a -> DT (Incr c n) a
--- reshuffle (same as insert)
-dbalanceL B (DT R (T R a x b) y c) z d = DT R (T B a x b) y (T B c z d)
-dbalanceL B (DT R a x (T R b y c)) z d = DT R (T B a x b) y (T B c z d)
--- double-black (new for delete)
-dbalanceL BB (DT R (T R a x b) y c) z d = DT B (T B a x b) y (T B c z d)
-dbalanceL BB (DT R a x (T R b y c)) z d = DT B (T B a x b) y (T B c z d)
-dbalanceL BB (DT NB a@(T B _ _ _) x (T B b y c)) z d = 
-  case (dbalanceL B (redden a) x b) of 
-    r@(DT R _ _ _)  -> DT B (assertRed r)  y (T B c z d) 
-    (DT B a1 x1 y1) -> DT B (T B a1 x1 y1) y (T B c z d) 
--- fall through cases (same as insert)
-dbalanceL c (DT B a x b) z d                         = DT c (T B a x b) z d
-dbalanceL c (DT R a@(T B _ _ _) x b@(T B _ _ _)) z d = DT c (T R a x b) z d
-dbalanceL c (DT R a@E x b@E) z d                     = DT c (T R a x b) z d
--- more fall through cases (new for delete)
-dbalanceL c DE x b = (DT c E x b)
-dbalanceL c a x b = error ("no case for " ++ showDT a)
-
-
-dbalanceR :: SColor c -> CT n c1 a -> a -> DT n a -> DT (Incr c n) a
-dbalanceR B a x (DT R (T R b y c) z d) = DT R (T B a x b) y (T B c z d)
-dbalanceR B a x (DT R b y (T R c z d)) = DT R (T B a x b) y (T B c z d)
-dbalanceR BB a x (DT R (T R b y c) z d) = DT B (T B a x b) y (T B c z d)
-dbalanceR BB a x (DT R b y (T R c z d)) = DT B (T B a x b) y (T B c z d)
-dbalanceR BB a x (DT NB (T B b y c) z d@(T B _ _ _)) =
-  case (dbalanceR B c z (redden d)) of
-        r@(DT R _ _ _)  -> DT B (T B a x b) y (assertRed r)
-        (DT B a1 x1 y1) -> DT B (T B a x b) y (T B a1 x1 y1)
-
-dbalanceR c a x (DT B b z d)           = DT c a x (T B b z d)
-dbalanceR c a x (DT R b@(T B _ _ _) z d@(T B _ _ _)) = DT c a x (T R b z d)
-dbalanceR c a x (DT R b@E z d@E) = DT c a x (T R b z d)
-dbalanceR c a x DE = DT c a x E
-dbalanceR c a x b = error ("no case for " ++ showDT b)
-
-
-bubbleL :: SColor c -> DT n a -> a -> CT n c1 a -> DT (Incr c n) a
--- don't want to prove generally that 
--- (Incr (Blacker c) 'Z ~ Incr c ('S 'Z)) so expand by cases.
--- (Note: Do we need all three of these cases?)
-bubbleL B DEE x r   = dbalanceR BB E x (redden r) 
-bubbleL R DEE x r   = dbalanceR B E x (redden r) 
-bubbleL NB DEE x r  = dbalanceR R E x (redden r) 
--- same thing here
-bubbleL B l@(DT BB a y b) x r  = dbalanceR BB (T B a y b) x (redden r)
-bubbleL R l@(DT BB a y b) x r  = dbalanceR B (T B a y b) x (redden r)
-bubbleL NB l@(DT BB a y b) x r = dbalanceR R (T B a y b) x (redden r)
--- fall through case
-bubbleL color l x r = dbalanceL color l x r
-
-
-bubbleR :: SColor c -> CT n c1 a -> a -> DT n a -> DT (Incr c n) a 
-bubbleR B r x DEE    = dbalanceL BB (redden r) x E
-bubbleR R r x DEE    = dbalanceL B  (redden r) x E
-bubbleR NB r x DEE   = dbalanceL R  (redden r) x E
--- same thing here
-bubbleR B r x l@(DT BB a y b) = dbalanceL BB (redden r) x (T B a y b) 
-bubbleR R r x l@(DT BB a y b)  = dbalanceL B (redden r) x (T B a y b) 
-bubbleR NB r x l@(DT BB a y b) = dbalanceL R (redden r) x (T B a y b) 
--- fall through case
-bubbleR color l x r = dbalanceR color l x r
--}
+delete : Ord a => a -> RBSet a -> RBSet a
+delete x (Root s) = del' x s
+  where
+    blackenCT : CT n c a -> RBSet a
+    blackenCT E = Root E
+    blackenCT (TR a x b) = Root (TB a x b)
+    blackenCT (TB a x b) = Root (TB a x b)
+    
+    blackenDTree : DTree n a -> RBSet a
+    blackenDTree (DT t) = blackenCT t
+    blackenDTree DEE = Root E
+    blackenDTree (DTBB a x b) = Root (TB a x b)
+    
+    blackenIR' : IR' n a -> RBSet a
+    blackenIR' E' = Root E
+    blackenIR' (IN' _ a x b) = Root (TB a x b)
+    
+    mutual
+      rDel : Ord a => a -> CT n R a -> IR' n a
+      rDel x (TR a y b) =
+        case compare x y of
+          LT => rBubbleL (bDel x a) y b
+          GT => rBubbleR a y (bDel x b)
+          EQ => rRemove (TR a y b)
+      bDel : Ord a => a -> CT n B a -> DTree n a
+      bDel x E = DT E
+      bDel x (TB {c1=d1} {c2=d2} a y b) =
+        case compare x y of
+          LT => bBubbleL d1 (del x a) y b
+          GT => bBubbleR d2 a y (del x b)
+          EQ => bRemove (TB a y b)
+      del : Ord a => a -> CT n c a -> (if c == R then IR' n a else DTree n a)
+      del {c=R} = rDel
+      del {c=B} = bDel
+    
+    del' : Ord a => a -> CT n c a -> RBSet a
+    del' {c=R} x t = blackenIR' (rDel x t)
+    del' {c=B} x t = blackenDTree (bDel x t)
 
 {-
 --- Testing code
