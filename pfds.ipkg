@@ -2,4 +2,5 @@ package pfds
 
 modules = LazyList,
           RealTimeQueue,
-          FingerTree
+          FingerTree,
+          RedBlackTree
