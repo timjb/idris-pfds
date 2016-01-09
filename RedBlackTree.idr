@@ -182,7 +182,6 @@ bbBalanceLeft (NBT (TB a1 a2 a3) x (TB b y c)) z d =
   let Evidence _ leftTree = bBalanceLeft (IN R a1 a2 a3) x b
   in DT (TB leftTree y (TB c z d))
 
-partial
 bbBalanceRight : CT n c1 a -> a -> RedTree n a -> DTree (S (S n)) a
 bbBalanceRight a x (RT (TR b y c) z d) = DT (TB (TB a x b) y (TB c z d))
 bbBalanceRight a x (RT b y (TR c z d)) = DT (TB (TB a x b) y (TB c z d))
@@ -273,7 +272,6 @@ bBubbleLeft1 DEE x (TR a y b) =
 -- TODO: combine last two cases
 -- META-TODO: combine last four cases?
 
-partial
 bBubbleLeft2 : IR' n a -> a -> CT n c1 a -> DTree (S n) a
 bBubbleLeft2 (IN' color a x b) y c =
   let Evidence _ t = bBalanceLeft (IN color a x b) y c
