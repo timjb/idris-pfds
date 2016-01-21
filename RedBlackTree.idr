@@ -23,12 +23,12 @@ module Data.RedBlackTree
 
 data C = R | B
 
-instance Eq C where
+implementation Eq C where
   R == R = True
   B == B = True
   _ == _ = False
 
-instance Show C where
+implementation Show C where
   show R = "R"
   show B = "B"
 
@@ -44,7 +44,7 @@ data CT : Nat -> C -> Type -> Type where
    TR : CT n B  a -> a -> CT n B  a -> CT n R a
    TB : CT n c1 a -> a -> CT n c2 a -> CT (S n) B a
 
-instance Show a => Show (CT n c a) where
+implementation Show a => Show (CT n c a) where
   show E = "E"
   show (TR a x b) =
     "(TR " ++ show a ++ " " ++ show x ++ " " ++ show b ++ ")"
@@ -57,7 +57,7 @@ instance Show a => Show (CT n c a) where
 data RBSet : Type -> Type where
   Root : CT n B a -> RBSet a
   
-instance Show a => Show (RBSet a) where
+implementation Show a => Show (RBSet a) where
   show (Root t) = "(Root " ++ show t ++ ")"
 
 

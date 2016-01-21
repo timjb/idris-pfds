@@ -17,16 +17,16 @@ appendLL xs ys =
 (++) : LazyList a -> LazyList a -> LazyList a
 (++) = appendLL -- trying to define (++) directly leads to an error
 
-instance Semigroup (LazyList a) where
+implementation Semigroup (LazyList a) where
   (<+>) = (++)
 
-instance Monoid (LazyList a) where
+implementation Monoid (LazyList a) where
   neutral = Nil
 
-instance Functor LazyListCell where
+implementation Functor LazyListCell where
   map f Nil = Nil
   map f (x :: xs) =
-    f x :: Delay (let Delay xs' = xs in map f xs)
+    f x :: Delay (map f xs)
 
 fromStrictList : List a -> LazyList a
 fromStrictList Nil = Nil
@@ -42,10 +42,10 @@ countdown (S n) = (S n)::(countdown n)
 
 takeLL : Nat -> LazyList a -> LazyList a
 takeLL Z _ = Nil
-takeLL (S n) xs = Delay $
+takeLL (S n) (Delay xs) = Delay $
   case xs of
-    Delay Nil => Nil
-    Delay (x::xs') => x::(takeLL n xs')
+    Nil => Nil
+    (x::xs') => x::(takeLL n xs')
 
 take : Nat -> LazyList a -> LazyList a
 take = takeLL -- trying to define `take` directly leads to an error

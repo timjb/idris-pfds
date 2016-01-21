@@ -66,17 +66,17 @@ data ViewR : (Type -> Type) -> Type -> Type where
       -- and the rightmost element
   --deriving (Eq, Ord, Show, Read)
 
-instance Functor s => Functor (ViewL s) where
+implementation Functor s => Functor (ViewL s) where
   map _ EmptyL    = EmptyL
   map f (x :< xs) = f x :< map f xs
 
-instance Functor s => Functor (ViewR s) where
+implementation Functor s => Functor (ViewR s) where
   map _ EmptyR    = EmptyR
   map f (xs :> x) = map f xs :> f x
 
 {-
 -- | 'empty' and '><'.
-instance Measured v a => Monoid (FingerTree v a) where
+implementation Measured v a => Monoid (FingerTree v a) where
   neutral = empty
   mappend = (><)
 -}
@@ -89,7 +89,7 @@ data Digit a
   | Three a a a
   | Four a a a a
 
-instance Foldable Digit where
+implementation Foldable Digit where
   foldr f acc (One a) = f a acc
   foldr f acc (Two a b) = f a (f b acc)
   foldr f acc (Three a b c) = f a (f b (f c acc))
@@ -100,10 +100,10 @@ instance Foldable Digit where
 -------------------
 
 -- | Things that can be measured.
-class Monoid v => Measured v a where
+interface Monoid v => Measured v a where
   measure : a -> v
 
-instance Measured v a => Measured v (Digit a) where
+implementation Measured v a => Measured v (Digit a) where
   measure = concatMap measure
 
 ---------------------------
@@ -112,7 +112,7 @@ instance Measured v a => Measured v (Digit a) where
 
 data Node v a = Node2 v a a | Node3 v a a a
 
-instance Foldable (Node v) where
+implementation Foldable (Node v) where
   foldr f acc (Node2 _ a b) = f a (f b acc)
   foldr f acc (Node3 _ a b c) = f a (f b (f c acc))
 
@@ -122,7 +122,7 @@ node2 a b = Node2 (measure a <+> measure b) a b
 node3 : Measured v a => a -> a -> a -> Node v a
 node3 a b c = Node3 (measure a <+> measure b <+> measure c) a b c
 
-instance Monoid v => Measured v (Node v a) where
+implementation Monoid v => Measured v (Node v a) where
   measure (Node2 v _ _)    =  v
   measure (Node3 v _ _ _)  =  v
 
@@ -153,7 +153,7 @@ ftMeasure (Single x)     = measure x
 ftMeasure (Deep v _ _ _) = v
 
 -- | /O(1)/. The cached measure of a tree.
-instance Measured v a => Measured v (FingerTree v a) where
+implementation Measured v a => Measured v (FingerTree v a) where
   measure = ftMeasure
 
 -- Avoid relying on right identity (cf Exercise 7)
@@ -165,16 +165,16 @@ deep : Measured v a =>
    Digit a -> FingerTree v (Node v a) -> Digit a -> FingerTree v a
 deep pr m sf = Deep ((measure pr `mappendVal` m) <+> measure sf) pr m sf
 
-instance Foldable (FingerTree v) where
+implementation Foldable (FingerTree v) where
   foldr _ acc Empty = acc
   foldr f acc (Single x) = f x acc
   foldr f acc (Deep _ pr (Delay m) sf) =
     foldr f (foldr (flip $ foldr f) (foldr f acc sf) m) pr
 
-instance Eq a => Eq (FingerTree v a) where
+implementation Eq a => Eq (FingerTree v a) where
   xs == ys = toList xs == toList ys
 
-instance Ord a => Ord (FingerTree v a) where
+implementation Ord a => Ord (FingerTree v a) where
   compare xs ys = compare (toList xs) (toList ys)
 
 mapNode : Measured v2 a2 =>
@@ -770,14 +770,14 @@ reverse = reverseTree id
 {- $example
 
 Particular abstract data types may be implemented by defining
-element types with suitable 'Measured' instances.
+element types with suitable 'Measured' implementations.
 
 (from section 4.5 of the paper)
 Simple sequences can be implemented using a 'Sum' monoid as a measure:
 
 > newtype Elem a = Elem { getElem : a }
 >
-> instance Measured (Sum Int) (Elem a) where
+> implementation Measured (Sum Int) (Elem a) where
 >     measure (Elem _) = Sum 1
 >
 > newtype Seq a = Seq (FingerTree (Sum Int) (Elem a))
