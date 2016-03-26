@@ -11,8 +11,8 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - cabal install idris-0.10 --only-dependencies
- - travis_wait cabal install idris-0.10
+ - cabal install idris-0.11 --only-dependencies
+ - travis_wait cabal install idris-0.11
 
 script:
  - idris --install pfds.ipkg

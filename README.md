@@ -2,4 +2,4 @@
 
 This is a collection of purely functional data structures implemented in Idris, some of them adapted from Chris Okasaki's book. Where possible, I tried to use size-indexed types.
 
-Compatibility: Requires Idris >= 0.10
+Compatibility: Requires Idris >= 0.11
