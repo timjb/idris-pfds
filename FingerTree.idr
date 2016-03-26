@@ -146,7 +146,6 @@ data FingerTree v a
   | Single a
   | Deep v (Digit a) (Lazy (FingerTree v (Node v a))) (Digit a)
 
-private
 ftMeasure : Measured v a => FingerTree v a -> v
 ftMeasure Empty          = neutral
 ftMeasure (Single x)     = measure x
