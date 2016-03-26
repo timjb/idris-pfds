@@ -32,8 +32,10 @@ twoNPlusM (S n) m = S (twoNPlusM n (S m))
 twoNPlusMCorrect : (n : Nat) -> (m : Nat) -> twoNPlusM n m = (n + (m + n))
 twoNPlusMCorrect Z m = sym (plusZeroRightNeutral m)
 twoNPlusMCorrect (S n) m =
-  let inductiveHypothesis = twoNPlusMCorrect n (S m)
-  in ?twoNPlusMCorrectStepCase
+  rewrite (twoNPlusMCorrect n (S m)) in
+  rewrite (sym (plusSuccRightSucc m n)) in
+  Refl
+
 
 concatReverse' : LazyVect n a -> Vect (S n) a -> LazyVect m a -> LazyVect (S (twoNPlusM n m)) a
 concatReverse' (Delay Nil) (y::Nil) a = y::a
@@ -56,7 +58,9 @@ twoNPlusMPair : NatPair -> Nat
 twoNPlusMPair = uncurry twoNPlusM
 
 sucPairCorrect : (p : NatPair) -> twoNPlusMPair (sucPair p) = S (twoNPlusMPair p)
-sucPairCorrect (n, Z) = ?sucPairCorrectCase1
+sucPairCorrect (n, Z) =
+  rewrite (twoNPlusMCorrect n Z) in
+  Refl
 sucPairCorrect (n, S m) = Refl
 
 -- In the implementation of snoc', Idris doesn't accept 'rewrite … in xs'
@@ -107,8 +111,15 @@ predPair (S n, Z) = (Z, S (n + n))
 
 predPairCorrect : (p : NatPair) -> twoNPlusMPair (predPair p) = pred (twoNPlusMPair p)
 predPairCorrect (Z, Z) = Refl
-predPairCorrect (S n, Z) = ?predPairCorrectCase1
-predPairCorrect (n, S m) = ?predPairCorrectCase2
+predPairCorrect (S n, Z) =
+  rewrite (twoNPlusMCorrect n 1) in
+  rewrite (sym (plusSuccRightSucc n n)) in
+  Refl
+predPairCorrect (n, S m) =
+  rewrite (twoNPlusMCorrect n (S m)) in
+  rewrite (twoNPlusMCorrect n m) in
+  rewrite (sym (plusSuccRightSucc n (m + n))) in
+  Refl
 
 tail' : Queue' p a -> PairNotZero p -> Queue' (predPair p) a
 tail' {p=(n,S m)} (QueueC' xs ys (z::zs)) _ =
@@ -145,40 +156,4 @@ fromVect : Vect n a -> Queue n a
 fromVect xs =
   let f = fromStrictVect xs
   in QueueC (QueueC' f Nil f) Refl
-
-
-------------------------------------------------------------------------------
--- Proofs
-------------------------------------------------------------------------------
-
-twoNPlusMCorrectStepCase = proof {
-  intros;
-  rewrite (sym inductiveHypothesis);
-  rewrite (plusSuccRightSucc m n)
-  trivial;
-}
-
-sucPairCorrectCase1 = proof {
-  intros;
-  rewrite (sym (twoNPlusMCorrect n Z));
-  rewrite (sym (plusZeroRightNeutral n));
-  rewrite (sym (plusZeroRightNeutral (n + n)));
-  trivial;
-}
-
-predPairCorrectCase1 = proof {
-  intros;
-  rewrite (sym (twoNPlusMCorrect n 1));
-  rewrite (plusSuccRightSucc n n);
-  trivial;
-}
-
-predPairCorrectCase2 = proof {
-  intros;
-  rewrite (twoNPlusMCorrect n (S m));
-  rewrite (sym (twoNPlusMCorrect n (S m)));
-  rewrite (sym (twoNPlusMCorrect n m));
-  rewrite (plusSuccRightSucc n (m + n));
-  trivial;
-}
 

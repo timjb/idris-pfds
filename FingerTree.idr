@@ -3,7 +3,7 @@ module FingerTree
 import Data.So
 
 %default total
-%access public
+%access public export
 
 -- A general sequence representation with arbitrary annotations, for
 -- use as a base for implementations of various collection types, as

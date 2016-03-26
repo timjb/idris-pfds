@@ -1,7 +1,7 @@
 module Data.LazyList
 
 %default total
-%access public
+%access public export
 
 data LazyListCell a = Nil | (::) a (Lazy (LazyListCell a))
 

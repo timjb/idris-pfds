@@ -1,7 +1,7 @@
 module Data.RedBlackTree
 
 %default total
-%access public
+%access public export
 
 -- BEWARE OF BUGS:
 -- The totality checker in Idris is apparantly broken (as in version 0.9.20.2)
