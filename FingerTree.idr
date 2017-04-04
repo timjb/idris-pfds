@@ -74,13 +74,6 @@ implementation Functor s => Functor (ViewR s) where
   map _ EmptyR    = EmptyR
   map f (xs :> x) = map f xs :> f x
 
-{-
-||| 'empty' and '><'.
-implementation Measured v a => Monoid (FingerTree v a) where
-  neutral = empty
-  mappend = (><)
--}
-
 -- Explicit Digit type (Exercise 1)
 
 data Digit a
@@ -636,6 +629,12 @@ appendTree0 (Deep _ pr1 m1 sf1) (Deep _ pr2 m2 sf2) =
 ||| /O(log(min(n1,n2)))/. Concatenate two sequences.
 (><) : (Measured v a) => FingerTree v a -> FingerTree v a -> FingerTree v a
 (><) =  appendTree0
+
+Measured v a => Semigroup (FingerTree v a) where
+  (<+>) = appendTree0
+
+Measured v a => Monoid (FingerTree v a) where
+  neutral = empty
 
 ----------------
 -- 4.4 Splitting
