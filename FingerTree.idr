@@ -169,8 +169,8 @@ implementation Foldable (FingerTree v) where
   foldr f acc (Deep _ pr (Delay m) sf) =
     foldr f (foldr (flip $ foldr f) (foldr f acc sf) m) pr
   foldl _ acc Empty = acc
-    foldl f acc (Single x) = f acc x
-    foldl f acc (Deep _ pr (Delay m) sf) =
+  foldl f acc (Single x) = f acc x
+  foldl f acc (Deep _ pr (Delay m) sf) =
     foldl f (foldl (foldl f) (foldl f acc pr) m) sf
 
 implementation Eq a => Eq (FingerTree v a) where
