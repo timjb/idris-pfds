@@ -53,13 +53,13 @@ infixl 5 |>, :>
 
 infixr 5 ><
 
--- | View of the left end of a sequence.
+||| View of the left end of a sequence.
 data ViewL : (Type -> Type) -> Type -> Type where
   EmptyL : ViewL s a -- ^ empty sequence
   (:<) : a -> s a -> ViewL s a -- ^ leftmost element and the rest of the sequence
   --deriving (Eq, Ord, Show, Read)
 
--- | View of the right end of a sequence.
+||| View of the right end of a sequence.
 data ViewR : (Type -> Type) -> Type -> Type where
   EmptyR : ViewR s a -- ^ empty sequence
   (:>) : s a -> a -> ViewR s a -- ^ the sequence minus the rightmost element,
@@ -75,7 +75,7 @@ implementation Functor s => Functor (ViewR s) where
   map f (xs :> x) = map f xs :> f x
 
 {-
--- | 'empty' and '><'.
+||| 'empty' and '><'.
 implementation Measured v a => Monoid (FingerTree v a) where
   neutral = empty
   mappend = (><)
@@ -99,7 +99,7 @@ implementation Foldable Digit where
 -- 4.1 Measurements
 -------------------
 
--- | Things that can be measured.
+||| Things that can be measured.
 interface Monoid v => Measured v a where
   measure : a -> v
 
@@ -130,17 +130,17 @@ nodeToDigit : Node v a -> Digit a
 nodeToDigit (Node2 _ a b) = Two a b
 nodeToDigit (Node3 _ a b c) = Three a b c
 
--- | A representation of a sequence of values of type @a@, allowing
--- access to the ends in constant time, and append and split in time
--- logarithmic in the size of the smaller piece.
---
--- The collection is also parameterized by a measure type @v@, which
--- is used to specify a position in the sequence for the 'split' operation.
--- The types of the operations enforce the constraint @'Measured' v a@,
--- which also implies that the type @v@ is determined by @a@.
---
--- A variety of abstract data types can be implemented by using different
--- element types and measurements.
+||| A representation of a sequence of values of type @a@, allowing
+||| access to the ends in constant time, and append and split in time
+||| logarithmic in the size of the smaller piece.
+|||
+||| The collection is also parameterized by a measure type @v@, which
+||| is used to specify a position in the sequence for the 'split' operation.
+||| The types of the operations enforce the constraint @'Measured' v a@,
+||| which also implies that the type @v@ is determined by @a@.
+|||
+||| A variety of abstract data types can be implemented by using different
+||| element types and measurements.
 data FingerTree v a
   = Empty
   | Single a
@@ -151,7 +151,7 @@ ftMeasure Empty          = neutral
 ftMeasure (Single x)     = measure x
 ftMeasure (Deep v _ _ _) = v
 
--- | /O(1)/. The cached measure of a tree.
+||| /O(1)/. The cached measure of a tree.
 implementation Measured v a => Measured v (FingerTree v a) where
   measure = ftMeasure
 
@@ -194,7 +194,7 @@ mapTree f (Single x) = Single (f x)
 mapTree f (Deep _ pr m sf) =
   deep (mapDigit f pr) (mapTree (mapNode f) m) (mapDigit f sf)
 
--- | Like 'fmap', but with a more constrained type.
+||| Like 'fmap', but with a more constrained type.
 fmap' : (Measured v1 a1, Measured v2 a2) =>
   (a1 -> a2) -> FingerTree v1 a1 -> FingerTree v2 a2
 fmap' = mapTree
@@ -230,8 +230,8 @@ mapWPTree f v (Deep _ pr m sf) =
   where vpr = v <+> measure pr
         vm = vpr  `mappendVal` m
 
--- | Map all elements of the tree with a function that also takes the
--- measure of the prefix of the tree to the left of the element.
+||| Map all elements of the tree with a function that also takes the
+||| measure of the prefix of the tree to the left of the element.
 fmapWithPos : (Measured v1 a1, Measured v2 a2) =>
   (v1 -> a1 -> a2) -> FingerTree v1 a1 -> FingerTree v2 a2
 fmapWithPos f = mapWPTree f neutral
@@ -240,7 +240,7 @@ unsafeFmapNode : (a -> b) -> Node v a -> Node v b
 unsafeFmapNode f (Node2 v a b) = Node2 v (f a) (f b)
 unsafeFmapNode f (Node3 v a b c) = Node3 v (f a) (f b) (f c)
 
--- | Like 'fmap', but safe only if the function preserves the measure.
+||| Like 'fmap', but safe only if the function preserves the measure.
 unsafeFmap : (a -> b) -> FingerTree v a -> FingerTree v b
 unsafeFmap _ Empty = Empty
 unsafeFmap f (Single x) = Single (f x)
@@ -265,7 +265,7 @@ traverseTree f (Single x) = [| Single (f x) |]
 traverseTree f (Deep _ pr m sf) =
   [| deep (traverseDigit f pr) (traverseTree (traverseNode f) m) (traverseDigit f sf) |]
 
--- | Like 'traverse', but with a more constrained type.
+||| Like 'traverse', but with a more constrained type.
 traverse' : (Measured v1 a1, Measured v2 a2, Applicative f) =>
   (a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverse' = traverseTree
@@ -300,8 +300,8 @@ traverseWPTree f v (Deep _ pr m sf) =
   where vpr = v <+> measure pr
         vm = vpr `mappendVal` m
 
--- | Traverse the tree with a function that also takes the
--- measure of the prefix of the tree to the left of the element.
+||| Traverse the tree with a function that also takes the
+||| measure of the prefix of the tree to the left of the element.
 traverseWithPos : (Measured v1 a1, Measured v2 a2, Applicative f) =>
   (v1 -> a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverseWithPos f = traverseWPTree f neutral
@@ -311,7 +311,7 @@ unsafeTraverseNode : (Applicative f) =>
 unsafeTraverseNode f (Node2 v a b) = Node2 v <$> f a <*> f b
 unsafeTraverseNode f (Node3 v a b c) = Node3 v <$> f a <*> f b <*> f c
 
--- | Like 'traverse', but safe only if the function preserves the measure.
+||| Like 'traverse', but safe only if the function preserves the measure.
 unsafeTraverse : (Applicative f) =>
   (a -> f b) -> FingerTree v a -> f (FingerTree v b)
 unsafeTraverse _ Empty = pure Empty
@@ -324,16 +324,16 @@ unsafeTraverse f (Deep v pr m sf) =
 -- 4.3 Construction, deconstruction and concatenation
 -----------------------------------------------------
 
--- | /O(1)/. The empty sequence.
+||| /O(1)/. The empty sequence.
 empty : Measured v a => FingerTree v a
 empty = Empty
 
--- | /O(1)/. A singleton sequence.
+||| /O(1)/. A singleton sequence.
 singleton : Measured v a => a -> FingerTree v a
 singleton = Single
 
--- | /O(1)/. Add an element to the left end of a sequence.
--- Mnemonic: a triangle with the single element at the pointy end.
+||| /O(1)/. Add an element to the left end of a sequence.
+||| Mnemonic: a triangle with the single element at the pointy end.
 (<|) : (Measured v a) => a -> FingerTree v a -> FingerTree v a
 a <| Empty = Single a
 a <| (Single b) = deep (One a) Empty (One b)
@@ -344,12 +344,12 @@ a <| (Deep v pr m sf) =
     Three b c d   => Deep (measure a <+> v) (Four  a b c d) m sf
     Four  b c d e => Deep (measure a <+> v) (Two a b) (node3 c d e <| m) sf
 
--- | /O(n)/. Create a sequence from a finite list of elements.
+||| /O(n)/. Create a sequence from a finite list of elements.
 fromList : (Measured v a) => List a -> FingerTree v a 
 fromList = foldr (<|) Empty
 
--- | /O(1)/. Add an element to the right end of a sequence.
--- Mnemonic: a triangle with the single element at the pointy end.
+||| /O(1)/. Add an element to the right end of a sequence.
+||| Mnemonic: a triangle with the single element at the pointy end.
 (|>) : (Measured v a) => FingerTree v a -> a -> FingerTree v a
 Empty |> a = Single a
 (Single a) |> b = deep (One a) Empty (One b)
@@ -360,7 +360,7 @@ Empty |> a = Single a
     Three a b c   => Deep (v <+> measure x) pr m (Four a b c x)
     Four  a b c d => Deep (v <+> measure x) pr (m |> node3 a b c) (Two d x)
 
--- | /O(1)/. Is this the empty sequence?
+||| /O(1)/. Is this the empty sequence?
 null : (Measured v a) => FingerTree v a -> Bool
 null Empty = True
 null _ = False
@@ -372,7 +372,7 @@ digitToTree (Three a b c) = deep (Two a b) Empty (One c)
 digitToTree (Four a b c d) = deep (Two a b) Empty (Two c d)
 
 mutual
-  -- | /O(1)/. Analyse the left end of a sequence.
+  ||| /O(1)/. Analyse the left end of a sequence.
   viewl : (Measured v a) => FingerTree v a -> ViewL (FingerTree v) a
   viewl Empty = EmptyL
   viewl (Single x) = x :< Empty
@@ -386,8 +386,8 @@ mutual
     EmptyL  => digitToTree sf
     a :< m' => Deep (measure m <+> measure sf) (nodeToDigit a) m' sf
 
--- | /O(1)/. Analyse the right end of a sequence.
 mutual
+  ||| /O(1)/. Analyse the right end of a sequence.
   viewr : (Measured v a) => FingerTree v a -> ViewR (FingerTree v) a
   viewr Empty = EmptyR
   viewr (Single x) = Empty :> x
@@ -633,7 +633,7 @@ appendTree0 xs (Single x) = xs |> x
 appendTree0 (Deep _ pr1 m1 sf1) (Deep _ pr2 m2 sf2) =
   deep pr1 (addDigits0 m1 sf1 pr2 m2) sf2
 
--- | /O(log(min(n1,n2)))/. Concatenate two sequences.
+||| /O(log(min(n1,n2)))/. Concatenate two sequences.
 (><) : (Measured v a) => FingerTree v a -> FingerTree v a -> FingerTree v a
 (><) =  appendTree0
 
@@ -712,11 +712,11 @@ splitTree p i (Deep _ pr m sf) _ =
         let Split l x r =  splitDigit p vm sf
         in Split (deepR pr m l) x (maybe Empty digitToTree r)
 
--- | /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
--- on the accumulated measure changes from 'False' to 'True'.
---
--- For predictable results, one should ensure that there is only one such
--- point, i.e. that the predicate is /monotonic/.
+||| /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
+||| on the accumulated measure changes from 'False' to 'True'.
+|||
+||| For predictable results, one should ensure that there is only one such
+||| point, i.e. that the predicate is /monotonic/.
 split : (Measured v a) => 
           (v -> Bool) -> FingerTree v a -> (FingerTree v a, FingerTree v a)
 split p xs =
@@ -726,19 +726,19 @@ split p xs =
       let Split l x r = splitTree p neutral xs so
       in if p (measure xs) then (l, x <| r) else (xs, Empty)
 
--- | /O(log(min(i,n-i)))/.
--- Given a monotonic predicate @p@, @'takeUntil' p t@ is the largest
--- prefix of @t@ whose measure does not satisfy @p@.
---
--- *  @'takeUntil' p t = 'fst' ('split' p t)@
+||| /O(log(min(i,n-i)))/.
+||| Given a monotonic predicate @p@, @'takeUntil' p t@ is the largest
+||| prefix of @t@ whose measure does not satisfy @p@.
+|||
+||| *  @'takeUntil' p t = 'fst' ('split' p t)@
 takeUntil : (Measured v a) => (v -> Bool) -> FingerTree v a -> FingerTree v a
 takeUntil p = fst . split p
 
--- | /O(log(min(i,n-i)))/.
--- Given a monotonic predicate @p@, @'dropUntil' p t@ is the rest of @t@
--- after removing the largest prefix whose measure does not satisfy @p@.
---
--- * @'dropUntil' p t = 'snd' ('split' p t)@
+||| /O(log(min(i,n-i)))/.
+||| Given a monotonic predicate @p@, @'dropUntil' p t@ is the rest of @t@
+||| after removing the largest prefix whose measure does not satisfy @p@.
+|||
+||| * @'dropUntil' p t = 'snd' ('split' p t)@
 dropUntil : (Measured v a) => (v -> Bool) -> FingerTree v a -> FingerTree v a
 dropUntil p = snd . split p
 
@@ -762,7 +762,7 @@ reverseTree f (Single x) = Single (f x)
 reverseTree f (Deep _ pr m sf) =
   deep (reverseDigit f sf) (reverseTree (reverseNode f) m) (reverseDigit f pr)
 
--- | /O(n)/. The reverse of a sequence.
+||| /O(n)/. The reverse of a sequence.
 reverse : (Measured v a) => FingerTree v a -> FingerTree v a
 reverse = reverseTree id
 
