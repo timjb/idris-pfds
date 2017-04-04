@@ -87,6 +87,10 @@ implementation Foldable Digit where
   foldr f acc (Two a b) = f a (f b acc)
   foldr f acc (Three a b c) = f a (f b (f c acc))
   foldr f acc (Four a b c d) = f a (f b (f c (f d acc)))
+  foldl f acc (One a) = f acc a
+  foldl f acc (Two a b) = f (f acc a) b
+  foldl f acc (Three a b c) = f (f (f acc a) b) c
+  foldl f acc (Four a b c d) = f (f (f (f acc a) b) c) d
 
 -------------------
 -- 4.1 Measurements
@@ -108,6 +112,8 @@ data Node v a = Node2 v a a | Node3 v a a a
 implementation Foldable (Node v) where
   foldr f acc (Node2 _ a b) = f a (f b acc)
   foldr f acc (Node3 _ a b c) = f a (f b (f c acc))
+  foldl f acc (Node2 _ a b) = f (f acc a) b
+  foldl f acc (Node3 _ a b c) = f (f (f acc a) b) c
 
 node2 : Measured v a => a -> a -> Node v a
 node2 a b = Node2 (measure a <+> measure b) a b
@@ -162,6 +168,10 @@ implementation Foldable (FingerTree v) where
   foldr f acc (Single x) = f x acc
   foldr f acc (Deep _ pr (Delay m) sf) =
     foldr f (foldr (flip $ foldr f) (foldr f acc sf) m) pr
+  foldl _ acc Empty = acc
+    foldl f acc (Single x) = f acc x
+    foldl f acc (Deep _ pr (Delay m) sf) =
+    foldl f (foldl (foldl f) (foldl f acc pr) m) sf
 
 implementation Eq a => Eq (FingerTree v a) where
   xs == ys = toList xs == toList ys
